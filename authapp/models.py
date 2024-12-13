@@ -35,6 +35,7 @@ class User(AbstractBaseUser):
     bio = models.TextField(null=True, blank=True)
     socialLinks = models.JSONField(null=True, blank=True)
 
+    is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)

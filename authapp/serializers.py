@@ -4,7 +4,7 @@ from .models import User
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'fullName', 'location', 'bio', 'socialLinks']
+        fields = ['id', 'email', 'fullName', 'is_verfied',  'location', 'bio', 'socialLinks']
         
 class RegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)

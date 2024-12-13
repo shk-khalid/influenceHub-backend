@@ -1,6 +1,5 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.core.mail import send_mail
-from django.urls import reverse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -8,8 +7,9 @@ from rest_framework.authtoken.models import Token
 from .serializers import RegistrationSerializer, LoginSerializer
 from .models import OTP, EmailVerification, PasswordResetOTP
 from django.conf import settings
+from authapp.serializers import UserSerializer
+from django_ratelimit.decorators  import ratelimit
 
-# Dynamically get the custom user model
 User = get_user_model()
 
 class RegisterUser(APIView):
@@ -51,6 +51,7 @@ class VerifyEmail(APIView):
             return Response({"message": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
    
 class LoginUser(APIView):
+    @ratelimit(key='ip', rate='5/m', burst=10)
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -72,6 +73,7 @@ class LoginUser(APIView):
                 return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
             return Response({"error": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    pass
     
 class VerifyOTP(APIView):
     def post(self, request):
@@ -140,3 +142,10 @@ class ResetPassword(APIView):
         
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+class UserList(APIView):
+    def get(self, request):
+        users = User.object.all() 
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
+    
