@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, get_user_model
+from django.utils.decorators import method_decorator
 from django.core.mail import send_mail
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -50,8 +51,9 @@ class VerifyEmail(APIView):
         except EmailVerification.DoesNotExist:
             return Response({"message": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
    
+
+@method_decorator(ratelimit(key='ip', rate='5/m', block=True), name='dispatch')
 class LoginUser(APIView):
-    @ratelimit(key='ip', rate='5/m', burst=10)
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -73,7 +75,7 @@ class LoginUser(APIView):
                 return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
             return Response({"error": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    pass
+
     
 class VerifyOTP(APIView):
     def post(self, request):
