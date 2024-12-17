@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.utils.decorators import method_decorator
 from django.core.mail import send_mail
 from rest_framework.views import APIView
@@ -10,10 +10,12 @@ from .models import OTP, EmailVerification, PasswordResetOTP
 from django.conf import settings
 from authapp.serializers import UserSerializer
 from django_ratelimit.decorators  import ratelimit
+from rest_framework.permissions import AllowAny
 
 User = get_user_model()
 
 class RegisterUser(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         serializer = RegistrationSerializer(data=request.data)
         if serializer.is_valid():
@@ -54,12 +56,13 @@ class VerifyEmail(APIView):
 
 @method_decorator(ratelimit(key='ip', rate='5/m', block=True), name='dispatch')
 class LoginUser(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
             password = serializer.validated_data['password'] 
-            user = authenticate(email=email, password=password)
+            user = authenticate(request, email=email, password=password)
 
             if user:
                 otp = OTP.objects.create(user=user)
@@ -78,6 +81,7 @@ class LoginUser(APIView):
 
     
 class VerifyOTP(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         email = request.data.get('email')
         otp_code = request.data.get('otp')
@@ -93,9 +97,10 @@ class VerifyOTP(APIView):
                 return Response({"error": "OTP has expired."}, status=status.HTTP_400_BAD_REQUEST)
             
             if otp.code == otp_code:
+                login(request, user)
                 # Generate token or session for the authenticated user
                 token, created = Token.objects.get_or_create(user=user)
-                return Response({"token": token.key}, status=status.HTTP_200_OK)
+                return Response({"message": "Login successful!", "redirect": "/dashboard", "token":token.key}, status=status.HTTP_200_OK)
             return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
         
         except User.DoesNotExist:
@@ -146,8 +151,12 @@ class ResetPassword(APIView):
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
 class UserList(APIView):
-    def get(self, request):
+    def get(self):
         users = User.object.all() 
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
     
+class LogoutUser(APIView):
+    def post(self, request):
+        logout(request)
+        return Response({"message": "Logged out successfully!"}, status=status.HTTP_200_OK)
