@@ -4,6 +4,7 @@ from django.utils import timezone
 import random
 import time
 import uuid
+import string
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -26,16 +27,19 @@ class UserManager(BaseUserManager):
 
         return self.create_user(email, password, **extra_fields)
 
-
 class User(AbstractBaseUser):
+    username = models.CharField(unique=True, max_length=255, null=True, blank=True)
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=255)
-    fullName = models.CharField(max_length=255)
+    fullName = models.CharField(max_length=255, null=True, blank=True)
     location = models.CharField(max_length=255, null=True, blank=True)
     bio = models.TextField(null=True, blank=True)
     socialLinks = models.JSONField(null=True, blank=True)
+    profilePicture = models.ImageField(upload_to='profile_pics/', null=True, blank=True)
 
-    is_verified = models.BooleanField(default=False)
+    # status flags
+    is_email_verified = models.BooleanField(default=False)
+    is_admin_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
@@ -43,15 +47,36 @@ class User(AbstractBaseUser):
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['fullName']
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['email']
 
     def __str__(self):
-        return self.fullName
+        return self.username
 
+    def has_perm(self, perm, obj=None):
+        "Does the user have a specific permission?"
+        return self.is_superuser
+
+    def has_module_perms(self, app_label):
+        "Does the user have permissions for the given app?"
+        return self.is_superuser
+    
+    def generate_username(self, email):
+        username = email.split('@')[0]
+        
+        while User.objects.filter(username=username).exists():
+            random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+            username = f"{username}_{random_str}"
+        
+        return username
+    
+    def save(self, *args, **kwargs):
+        if not self.username:
+            self.username = self.generate_username(self.email)
+        super().save(*args, **kwargs)
+    
     class Meta:
         db_table = "users"
-
 
 class OTP(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -67,18 +92,17 @@ class OTP(models.Model):
         # Validity set for 3 minutes
         return (time.time() - self.timestamp.timestamp()) > 180
 
-
 class EmailVerification(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     token = models.UUIDField(default=uuid.uuid4, unique=True)
-    is_verified = models.BooleanField(default=False)
+    is_email_verified = models.BooleanField(default=False)
+    is_admin_verified = models.BooleanField(default=False) 
 
     def generate_token(self):
         # Generate and return verification token
         self.token = uuid.uuid4()
         self.save()
         return self.token
-
 
 class PasswordResetOTP(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
