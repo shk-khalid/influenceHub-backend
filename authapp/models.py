@@ -28,6 +28,18 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 class User(AbstractBaseUser):
+    
+    NICHE_CHOICES = [
+        ('lifestyle', 'Lifestyle'),
+        ('technology', 'Technology'),
+        ('fashion', 'Fashion & Beauty'),
+        ('fitness', 'Fitness and Health'),
+        ('food', 'Food and Cooking'),
+        ('travel', 'Travel'),
+        ('gaming', 'Gaming'),
+        ('education', 'Education'),
+    ]
+    
     username = models.CharField(unique=True, max_length=255, null=True, blank=True)
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=255)
@@ -36,6 +48,9 @@ class User(AbstractBaseUser):
     bio = models.TextField(null=True, blank=True)
     socialLinks = models.JSONField(null=True, blank=True)
     profilePicture = models.ImageField(upload_to='profile_pics/', null=True, blank=True)
+    niche = models.CharField(max_length=50, choices=NICHE_CHOICES, default=None, null=True, blank=True)
+    languages = models.JSONField(default=list, blank=True)
+    collaborate = models.BooleanField(default=False)
 
     # status flags
     is_email_verified = models.BooleanField(default=False)

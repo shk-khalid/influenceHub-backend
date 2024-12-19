@@ -48,12 +48,25 @@ class LoginSerializer(serializers.Serializer):
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta: 
         model = User 
-        fields = ['fullName', 'location', 'bio', 'socialLinks', 'profilePicture'] 
+        fields = ['fullName', 'location', 'bio', 'socialLinks', 'profilePicture', 'niche', 'languages', 'collaborate', 'is_admin_verified']
+
+    def validate_languages(self, value):
+        valid_languages = {'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
+                           'Chinese', 'Japanese', 'Korean', 'Russian', 'Arabic', 'Hindi'}
+        valid_levels = {'Native', 'Fluent', 'Advanced', 'Intermediate', 'Basic'}
         
+        for lang in value:
+            if lang['language'] not in valid_languages:
+                raise serializers.ValidationError(f"Invalid language: {lang['language']}. Must be one of {', '.join(valid_languages)}.")
+            if lang['level'] not in valid_levels:
+                raise serializers.ValidationError(f"Invalid level for {lang['language']}: {lang['level']}. Must be one of {', '.join(valid_levels)}.")
+        
+        return value
+
     def update(self, instance, validated_data):
         for field, value in validated_data.items():
             setattr(instance, field, value)
-            
+        
         if 'profilePicture' in validated_data:
             instance.profilePicture = validated_data.get('profilePicture')  
               
