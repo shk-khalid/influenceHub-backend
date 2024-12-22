@@ -4,6 +4,7 @@ from rest_framework import status
 from .models import Trend
 from .serializers import TrendSerializer
 from .utils import fetch_and_update_trends
+from celery.worker import request
 
 class TrendAnalysisView(APIView):
     def get(self, request):
@@ -22,20 +23,11 @@ class TrendAnalysisView(APIView):
             
         serializer = TrendSerializer(trends, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    def post(self):
+
+class RefreshTrendView(APIView):
+    def get(self, request):
         try:
             fetch_and_update_trends()
-
-            trends = Trend.objects.all()
-            serializer = TrendSerializer(trends, many=True)
-            return Response({
-                "message": "Trends successfully refreshed.",
-                "data": serializer.data
-            }, status=status.HTTP_200_OK)
-
+            return Response({'message': 'Trends updated successfully!'}, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({
-                "error": "Failed to refresh trends.",
-                "details": str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
