@@ -1,0 +1,31 @@
+# Core Django and REST Framework
+Django>=4.2
+djangorestframework>=3.14
+django-filter>=23.2
+
+# Database
+psycopg2>=2.9.6
+
+# Celery and Task Management
+celery>=5.3
+redis>=5.0.0  # For Celery backend
+
+# Testing and Debugging
+pytest-django>=4.5.2
+pytest>=7.4.2
+pytest-cov>=4.1.0
+
+# Authentication
+django-allauth>=0.57.0
+djangorestframework-simplejwt>=5.2.2
+
+# Additional Utilities
+requests>=2.31  # For API calls
+python-decouple>=3.8  # For environment variables
+
+# WebSockets (optional for real-time features)
+channels>=4.0
+channels-redis>=4.0.0
+
+# Pagination and Filtering
+drf-yasg>=1.21.6  # For API documentation (Swagger UI)

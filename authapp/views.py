@@ -145,7 +145,7 @@ class VerifyOTP(APIView):
             if otp.code == otp_code:
                 login(request, user)
                 # Generate token or session for the authenticated user
-                token = Token.objects.get_or_create(user=user)
+                token, created = Token.objects.get_or_create(user=user)
                 return Response({"message": "Login successful!", "redirect": "/dashboard", "token":token.key}, status=status.HTTP_200_OK)
             return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
         
