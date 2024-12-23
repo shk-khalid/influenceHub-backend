@@ -4,7 +4,6 @@ from textblob import TextBlob
 from dotenv import load_dotenv
 from .models import Trend
 from datetime import datetime
-from isort import comments
 
 load_dotenv()
 
@@ -33,20 +32,12 @@ def fetch_reddit_trends():
         subreddit_data = reddit.subreddit(subreddit)
 
         for post in subreddit_data.hot(limit=5):
-            post.comments.replace_more(limit=0)
-            comments = [{
-                'author': comment.author.name if comment.author else 'unknown', # author
-                'body': comment.body, # content
-                'score': comment.score, # comment score
-            } for comment in post.comments[:3]] # fetching limit to top 5 comments only
-            
             trends.append({
                 'name': post.title,
                 'category': category,
                 'volume': post.score,
                 'region': 'Global',
                 'growth': 0.0,
-                'comments': comments,
             })
     return trends
 
@@ -75,7 +66,6 @@ def update_trends(trends):
             existing_trend.volume = new_volume
             existing_trend.growth = growth
             existing_trend.sentiment = sentiment_score
-            existing_trend.comments  = trend_data['comments']
             existing_trend.last_updated = datetime.now()
             existing_trend.save()
         else:
@@ -87,7 +77,6 @@ def update_trends(trends):
                 region=trend_data['region'],
                 growth=trend_data['growth'],
                 sentiment=sentiment_score,
-                comments=trend_data['comments'],
             )
 
 
