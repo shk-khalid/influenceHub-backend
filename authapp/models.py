@@ -30,14 +30,13 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser):
     
     NICHE_CHOICES = [
-        ('lifestyle', 'Lifestyle'),
         ('technology', 'Technology'),
         ('fashion', 'Fashion & Beauty'),
         ('fitness', 'Fitness and Health'),
         ('food', 'Food and Cooking'),
         ('travel', 'Travel'),
         ('gaming', 'Gaming'),
-        ('education', 'Education'),
+
     ]
     
     username = models.CharField(unique=True, max_length=255, null=True, blank=True)
