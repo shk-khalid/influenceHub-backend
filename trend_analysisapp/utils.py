@@ -1,4 +1,4 @@
-import asyncpraw
+import praw
 import os
 import asyncio
 from textblob import TextBlob
@@ -23,7 +23,7 @@ CATEGORY_SUBREDDITS = {
 }
 
 def create_reddit_instance():
-    return asyncpraw.Reddit(
+    return praw.Reddit(
         client_id=REDDIT_CLIENT_ID,
         client_secret=REDDIT_CLIENT_SECRET,
         user_agent=REDDIT_USER_AGENT,
