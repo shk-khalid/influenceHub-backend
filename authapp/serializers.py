@@ -1,10 +1,13 @@
 from rest_framework import serializers
 from .models import User
 
+
 class UserSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = User
         fields = ['id', 'email', 'username', 'fullName', 'location', 'bio', 'socialLinks', 'profilePicture']
+
         
 class RegistrationSerializer(serializers.ModelSerializer):
     password_confirmation = serializers.CharField(write_only=True)
@@ -22,6 +25,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirmation')
         user = User.objects.create_user(**validated_data)
         return user
+
     
 class LoginSerializer(serializers.Serializer):
     email_or_username = serializers.CharField()
@@ -45,21 +49,23 @@ class LoginSerializer(serializers.Serializer):
         attrs['user'] = user 
         return attrs
 
+
 class ProfileUpdateSerializer(serializers.ModelSerializer):
+
     class Meta: 
         model = User 
         fields = ['fullName', 'location', 'bio', 'socialLinks', 'profilePicture', 'niche', 'languages', 'collaborate', 'is_admin_verified']
 
     def validate_languages(self, value):
-        valid_languages = {'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
+        valid_languages = {'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
                            'Chinese', 'Japanese', 'Korean', 'Russian', 'Arabic', 'Hindi'}
         valid_levels = {'Native', 'Fluent', 'Advanced', 'Intermediate', 'Basic'}
         
         for lang in value:
             if lang['language'] not in valid_languages:
-                raise serializers.ValidationError(f"Invalid language: {lang['language']}. Must be one of {', '.join(valid_languages)}.")
+                raise serializers.ValidationError("Invalid language: {}. Must be one of {}.".format(lang['language'], ', '.join(valid_languages)))
             if lang['level'] not in valid_levels:
-                raise serializers.ValidationError(f"Invalid level for {lang['language']}: {lang['level']}. Must be one of {', '.join(valid_levels)}.")
+                raise serializers.ValidationError("Invalid level for {}: {}. Must be one of {}.".format(lang['language'], lang['level'], ', '.join(valid_levels)))
         
         return value
 

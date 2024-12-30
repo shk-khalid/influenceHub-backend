@@ -24,4 +24,4 @@ class Trend(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
         
     def __str__(self):
-        return f"{self.name} ({self.region})"
+        return "{} ({})".format(self.name, self.region)

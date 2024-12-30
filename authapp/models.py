@@ -80,7 +80,7 @@ class User(AbstractBaseUser):
         
         while User.objects.filter(username=username).exists():
             random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
-            username = f"{username}_{random_str}"
+            username = "{}_{}".format(username, random_str)
         
         return username
     

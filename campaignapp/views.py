@@ -87,7 +87,7 @@ class UpdateCampaignStatus(APIView):
         
         valid_statuses = [choice[0] for choice in campaign.STATUS_CHOICES] 
         if new_status not in valid_statuses:
-            return Response({"error": f"Invalid status. Valid statuses are: {', '.join(valid_statuses)}."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid status. Valid statuses are: {}.".format(', '.join(valid_statuses))}, status=status.HTTP_400_BAD_REQUEST)
         
         old_status = campaign.status
         campaign.status = new_status
@@ -96,9 +96,9 @@ class UpdateCampaignStatus(APIView):
         if old_status != new_status:
             self.send_status_update_email(request.user.email, campaign.title, new_status)
             
-        return Response({"message": f"Campaign status updated to '{new_status}'."}, status=status.HTTP_200_OK)
+        return Response({"message": "Campaign status updated to {}.".format(new_status)}, status=status.HTTP_200_OK)
         
     def send_status_update_email(self, email, campaign_title, status):
-        subject = f"Campaign Status Update: {campaign_title}"
-        message = f"The status of your campaign '{campaign_title}' has been updated to '{status}'."
+        subject = "Campaign Status Update: {}".format(campaign_title)
+        message = "The status of your campaign {} has been updated to {}.".format(campaign_title, status)
         send_mail(subject, message, 'noreply@campaignapp.com', [email])  

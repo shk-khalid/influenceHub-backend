@@ -17,9 +17,9 @@ def verify_user(modeladmin, request, queryset):
                 [verification.user.email],
                 fail_silently=False,
             )
-            modeladmin.message_user(request, f'User {verification.user.email} has been verified.')
+            modeladmin.message_user(request, 'User {} has been verified.'.format(verification.user.email))
         else:
-            modeladmin.message_user(request, f'User {verification.user.email} is already verified.')
+            modeladmin.message_user(request, 'User {} is already verified.'.format(verification.user.email))
 
 verify_user.short_description = 'Mark selected users as verified'
 
@@ -37,9 +37,9 @@ def unverify_user(modeladmin, request, queryset):
                 [verification.user.email],
                 fail_silently=False,
             )
-            modeladmin.message_user(request, f'User {verification.user.email} has been unverified.')
+            modeladmin.message_user(request, 'User {} has been unverified.'.format(verification.user.email))
         else:
-            modeladmin.message_user(request, f'User {verification.user.email} is already unverified.')
+            modeladmin.message_user(request, 'User {} is already unverified.'.format(verification.user.email))
 
 unverify_user.short_description = 'Unverify selected users'
 

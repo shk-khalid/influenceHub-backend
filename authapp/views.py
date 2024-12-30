@@ -25,11 +25,11 @@ class RegisterUser(APIView):
             verification = EmailVerification.objects.create(user=user)
             token = verification.generate_token()
             
-            verification_link = f"{settings.FRONTEND_URL}/verify-email/?token={token}"
+            verification_link = "{}/verify-email/?token={}".format(settings.FRONTEND_URL, token)
             
             send_mail(
                 'Verify your email address',
-                f'Please click on the following link to verify your email: {verification_link}',
+                'Please click on the following link to verify your email: {}'.format(verification_link),
                 'no-reply@influenceHub.com',
                 [user.email],
                 fail_silently=False,
@@ -118,7 +118,7 @@ class LoginUser(APIView):
             
             send_mail(
                 'Your 2FA code ',
-                f'Your 2FA code is {otp_code}',
+                'Your 2FA code is {}'.format(otp_code),
                 'no-reply@influenceHub.com',
                 [user.email],
                 fail_silently=False,
@@ -164,7 +164,7 @@ class ForgotPassword(APIView):
             
             send_mail(
                 'Your Password Reset Code',
-                f'Your Password reset code is {otp_code}',
+                'Your Password reset code is {}'.format(otp_code),
                 'no-reply@influenceHub.com',
                 [user.email],
                 fail_silently=False,
