@@ -4,9 +4,8 @@
 __pycache__/
 
 # Virtual environment
-venv/
-env/
-.env/
+myenv/
+
 
 # Django specific
 *.log
@@ -60,3 +59,4 @@ instance/
 # .env files for environment variables
 .env
 
+/sultan_the_scraper.py

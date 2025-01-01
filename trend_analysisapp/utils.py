@@ -30,9 +30,9 @@ def create_reddit_instance():
     )
     
 async def fetch_subreddit_trend(reddit, category, subreddit_name):
-    subreddit_data = reddit.subreddit(subreddit_name)
+    subreddit_data = await reddit.subreddit(subreddit_name)
     trends = []
-    for post in subreddit_data.hot(limit=5):
+    async for post in subreddit_data.hot(limit=5):
         trends.append({
             'name': post.title,
             'category': category,
