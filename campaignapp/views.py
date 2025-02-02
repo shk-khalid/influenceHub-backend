@@ -8,35 +8,13 @@ from .serializers import CampaignSerializer
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
-"""
-class CreateCampaign(APIView):
-    permission_classes = [IsAuthenticated]
-    def get(self, request):
-        campaigns = Campaign.objects.filter(brand=request.user)
-        serializer = CampaignSerializer(campaigns, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    def post(self, request):
-        user = request.user
-        if not user.is_authenticated:
-            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        serializer = CampaignSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(brand=request.user)
-            return Response(serializer.data, status.HTTP_201_CREATED)
-        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-"""
+
 class CreateCampaign(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         # Fetch campaigns where the brand matches the logged-in user (original implementation)
-        campaigns = Campaign.objects.filter(brand=request.user)
-        
-        # Uncomment the following lines to use hardcoded brand temporarily
-        # campaigns = Campaign.objects.filter(brand="Placeholder Brand")
-        
+        campaigns = Campaign.objects.all()
         serializer = CampaignSerializer(campaigns, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

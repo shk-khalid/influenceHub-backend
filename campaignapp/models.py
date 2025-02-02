@@ -15,12 +15,11 @@ class Campaign(models.Model):
         ('medium', 'Medium'),
         ('high', 'High')
     ]
-    brand = models.CharField(max_length=255)  # temporary until and unless brand model is created
-    # brand = models.ForeignKey(User, related_name='campaigns', on_delete=models.CASCADE)
+
     title = models.CharField(max_length=255)
     budget = models.DecimalField(max_digits=10, decimal_places=2)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    startDate = models.DateField()
+    endDate = models.DateField()
     priority = models.CharField(max_length=15, choices=PRIORITY_CHOICES, default='medium')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)

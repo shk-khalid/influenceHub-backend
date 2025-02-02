@@ -4,9 +4,11 @@ from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from .models import Trend
 from .serializers import TrendSerializer
-from .utils import fetch_and_update_trends
+from .utils import fetch_and_update_trends, remove_outdated_trends
+from rest_framework.permissions import AllowAny
 
 class TrendAnalysisView(APIView):
+    permission_classes = [AllowAny]
     def get(self, request):
         search_query = request.query_params.get('search', None)
         category_filter = request.query_params.get('category', None)
@@ -17,7 +19,7 @@ class TrendAnalysisView(APIView):
         if search_query:
             trends = trends.filter(name__icontains=search_query)
         if category_filter:
-            trends = trends.filter(category=category_filter)
+            trends = trends.filter(category=category_filter.lower())
         if region_filter:
             trends = trends.filter(region=region_filter)
                     
@@ -31,9 +33,12 @@ class TrendAnalysisView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
 class RefreshTrendView(APIView):
+    permission_classes = [AllowAny]
     def get(self, request):
         try:
             fetch_and_update_trends()
-            return Response({'message': 'Trends updated successfully!'}, status=status.HTTP_200_OK)
+            deleted_count = remove_outdated_trends()
+    
+            return Response({'message': f'Trends updated successfully! {deleted_count} outdated trends removed.'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

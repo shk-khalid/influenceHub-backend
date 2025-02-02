@@ -5,7 +5,7 @@ from .models import Brand, PerformanceMetric, Competitor, GenderDemographic, Val
 class CompetitorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Competitor
-        fields = ['competitor_name', 'sector', 'market_share']
+        fields = ['competitor_name']
 
 
 class ValuationHistorySerializer(serializers.ModelSerializer):
@@ -17,8 +17,7 @@ class ValuationHistorySerializer(serializers.ModelSerializer):
 class GenderDemographicSerializer(serializers.ModelSerializer):
     class Meta:
         model = GenderDemographic
-        fields = ['male_percentage', 'female_percentage', 'other_percentage']
-
+        fields = ['male_percentage', 'female_percentage']
 
 class PerformanceMetricSerializer(serializers.ModelSerializer):
     class Meta:

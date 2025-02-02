@@ -2,12 +2,12 @@ from django.db import models
 
 class Trend(models.Model):
     CATEGORY_CHOICES = [
-        ('tech', 'Tech'),
+        ('technology', 'Technology'),
         ('food', 'Food'),
         ('fashion', 'Fashion'),
-        ('entertainment', 'Entertainment'),
-        ('sports', 'Sports'),
-        ('politics', 'Politics'),
+        ('fitness', 'Fitness'),
+        ('travel', 'Travel'),
+        ('gaming', 'Gaming'),
     ]
     
     REGION_CHOICES = [

@@ -4,7 +4,8 @@ import asyncio
 from textblob import TextBlob
 from dotenv import load_dotenv
 from .models import Trend
-from datetime import datetime
+from django.utils import timezone
+from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor
 
 load_dotenv()
@@ -44,13 +45,16 @@ async def fetch_subreddit_trend(reddit, category, subreddit_name):
 
 async def fetch_reddit_trend():
     reddit = create_reddit_instance()
-    tasks = []
-    
-    for category, subreddit_name in CATEGORY_SUBREDDITS.items():
-        tasks.append(fetch_subreddit_trend(reddit, category, subreddit_name))
+    try:
+        tasks = []
         
-    all_trends = await asyncio.gather(*tasks)
-    return [trend for trends in all_trends for trend in trends]
+        for category, subreddit_name in CATEGORY_SUBREDDITS.items():
+            tasks.append(fetch_subreddit_trend(reddit, category, subreddit_name))
+            
+        all_trends = await asyncio.gather(*tasks)
+        return [trend for trends in all_trends for trend in trends]
+    finally:
+        await reddit.close() 
 
 def calculate_sentiment(text):
     # Calculate the sentiment score for a given text
@@ -80,7 +84,7 @@ def update_or_create_trend(trend_data):
         existing_trend.volume = new_volume
         existing_trend.growth = growth
         existing_trend.sentiment = sentiment_score
-        existing_trend.last_updated = datetime.now()
+        existing_trend.last_updated = timezone.now()
         existing_trend.save()
     else:
         # If the trend does not exist, create a new entry
@@ -100,3 +104,10 @@ def fetch_and_update_trends():
     asyncio.set_event_loop(loop)
     reddit_trends = loop.run_until_complete(fetch_reddit_trend())
     update_trends(reddit_trends)
+
+def remove_outdated_trends():
+    threshold_date = timezone.now() - timedelta(days=1)
+    outdated_trend = Trend.objects.filter(last_updated__lt=threshold_date)
+    deleted_count, _ = outdated_trend.delete()
+
+    return deleted_count
