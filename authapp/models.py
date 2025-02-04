@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
 from django.utils import timezone
+from datetime import timedelta
 import random
 import time
 import uuid
@@ -52,7 +53,6 @@ class User(AbstractBaseUser):
     collaborate = models.BooleanField(default=False)
 
     # status flags
-    is_email_verified = models.BooleanField(default=False)
     is_admin_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -96,15 +96,18 @@ class OTP(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     code = models.CharField(max_length=6)
     timestamp = models.DateTimeField(auto_now_add=True)
+    expired = models.BooleanField(default=False)
 
     def generate_otp(self):
         self.code = str(random.randint(100000, 999999))
+        self.expired = False
         self.save()
         return self.code
 
+    
     def is_expired(self):
-        # Validity set for 3 minutes
-        return (time.time() - self.timestamp.timestamp()) > 180
+        """Only check if the OTP is expired without modifying the database"""
+        return timezone.now() > (self.timestamp + timedelta(minutes=3))
 
 class EmailVerification(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
