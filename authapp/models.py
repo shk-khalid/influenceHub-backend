@@ -3,15 +3,18 @@ from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
 from django.utils import timezone
 from datetime import timedelta
 import random
-import uuid
 import string
 
 class UserManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(self, email, username=None, password=None, **extra_fields):
         if not email:
             raise ValueError('The email must be set')
+        
         email = self.normalize_email(email)
-        username = extra_fields.get('username') or self.generate_unique_username(email)
+        if not username:
+            username = self.generate_unique_username(email)
+
+        extra_fields.pop('username', None)  # Prevent duplicate username key
 
         user = self.model(email=email, username=username, **extra_fields)
         user.set_password(password)
@@ -48,8 +51,8 @@ class User(AbstractBaseUser):
         ('gaming', 'Gaming'),
     ]
     
-    username = models.CharField(unique=True, max_length=255)
     email = models.EmailField(unique=True)
+    userName = models.CharField(unique=True, max_length=255)
     password = models.CharField(max_length=255)
     fullName = models.CharField(max_length=255, null=True, blank=True)
     location = models.CharField(max_length=255, null=True, blank=True)
@@ -61,17 +64,19 @@ class User(AbstractBaseUser):
     collaborate = models.BooleanField(default=False)
 
     # Status flags
+    is_admin_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
 
     objects = UserManager()
 
     USERNAME_FIELD = 'email'  # Changed to 'email' for better authentication handling
-    REQUIRED_FIELDS = ['username']
+    REQUIRED_FIELDS = ['userName']
 
     def __str__(self):
-        return self.username
+        return self.userName
 
     def has_perm(self, perm, obj=None):
         return self.is_superuser
@@ -83,21 +88,6 @@ class User(AbstractBaseUser):
         db_table = "users"
 
 class OTP(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    code = models.CharField(max_length=6)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    expired = models.BooleanField(default=False)
-
-    def generate_otp(self):
-        self.code = str(random.randint(100000, 999999))
-        self.expired = False
-        self.save()
-        return self.code
-
-    def is_expired(self):
-        return timezone.now() > (self.timestamp + timedelta(minutes=3))
-
-class PasswordResetOTP(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     code = models.CharField(max_length=6)
     timestamp = models.DateTimeField(auto_now_add=True)

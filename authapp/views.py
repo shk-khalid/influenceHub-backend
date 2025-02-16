@@ -6,10 +6,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from .serializers import RegistrationSerializer, LoginSerializer, ProfileUpdateSerializer
-from .models import OTP, EmailVerification, PasswordResetOTP
+from .models import OTP
 from authapp.serializers import UserSerializer
 from django_ratelimit.decorators  import ratelimit
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny
 
 User = get_user_model()
 
@@ -42,46 +42,10 @@ class UpdateUserDetails(APIView):
         
         if serializer.is_valid():
             serializer.save()
-            return Response({"message": "User details updated successfully. "}, status=status.HTTP_200_OK)
+            return Response({"message": "User details updated successfully. ", "user": UserSerializer.data}, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-    
-class ViewUserProfile(APIView):
-    def get(self, request):
-        user = request.user
-        serializer = ProfileUpdateSerializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-class AdminVerifyUser(APIView):
-    permission_classes = [IsAdminUser]
-    
-    def post(self, request):
-        user_id = request.data.get('user_id')
-        action = request.data.get('action')  # either 'verify' or 'unverify'
-
-        if not user_id or action not in ['verify', 'unverify']:
-            return Response({"error": "Invalid request parameters."}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            verification = EmailVerification.objects.get(user_id=user_id)
-            
-            # Admin verification logic
-            if action == 'verify':
-                if verification.is_admin_verified:
-                    return Response({"message": "User is already verified by admin."}, status=status.HTTP_200_OK)
-                verification.is_admin_verified = True
-                verification.save()
-                return Response({"message": "User profile has been approved by admin."}, status=status.HTTP_200_OK)
-            elif action == 'unverify':
-                if not verification.is_admin_verified:
-                    return Response({"message": "User is already unverified by admin."}, status=status.HTTP_200_OK)
-                verification.is_admin_verified = False
-                verification.save()
-                return Response({"message": "User profile has been unverified by admin."}, status=status.HTTP_200_OK)
-        
-        except EmailVerification.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-
+       
 @method_decorator(ratelimit(key='ip', rate='5/h', block=True), name='dispatch')
 class LoginUser(APIView):
     permission_classes = [AllowAny]
@@ -105,44 +69,55 @@ class LoginUser(APIView):
             return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@method_decorator(ratelimit(key='ip', rate='10/h', block=True), name='dispatch')
 class VerifyOTP(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         email = request.data.get('email')
         otp_code = request.data.get('otp')
-        action = request.data.get('action')  # Add this parameter to distinguish the action
-        
+        action = request.data.get('action')
+
         if not email or not otp_code or not action:
             return Response({"error": "Email, OTP, and action are required."}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             user = User.objects.get(email=email)
+            
+            # Fetch the latest non-expired OTP for the user
             otp = OTP.objects.filter(user=user, expired=False).order_by('-timestamp').first()
 
             if not otp or otp.is_expired():
-                otp.expired = True 
-                otp.save(update_fields=["expired"])
-                print(f"Email: {email}, OTP: {otp_code}, Action: {action}, OTP Found: {otp.code}, Expired: {otp.is_expired()}")
+                if otp:
+                    otp.expired = True
+                    otp.save(update_fields=["expired"])
                 return Response({"error": "OTP has expired."}, status=status.HTTP_400_BAD_REQUEST)
 
-
             if otp.code == otp_code:
+                otp.expired = True
+                otp.save(update_fields=["expired"])
+
                 # If the action is login, authenticate the user
                 if action == "login":
                     login(request, user)
-                    # Generate token or session for the authenticated user
-                    token, created = Token.objects.get_or_create(user=user)
-                    return Response({"message": "Login successful!", "redirect": "/dashboard", "token": token.key}, status=status.HTTP_200_OK)
+                    token, _ = Token.objects.get_or_create(user=user)
+                    user_serializer = UserSerializer(user)
 
-                # If the action is forgot password, you can implement the password reset logic
+                    return Response({
+                        "message": "Login successful!",
+                        "redirect": "/dashboard",
+                        "token": token.key,
+                        "user": user_serializer.data
+                    }, status=status.HTTP_200_OK)
+
+                # If the action is forgot_password, allow password reset
                 elif action == "forgot_password":
-                    # Assuming you have a function or view to handle password reset
-                    return Response({"message": "OTP verified. Please proceed to reset your password."}, status=status.HTTP_200_OK)
-
-                # In case of an invalid action
-                return Response({"error": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
+                    reset_token, _ = Token.objects.get_or_create(user=user)
+                    return Response({
+                        "message": "OTP verified. Please proceed to reset your password.",
+                        "token": reset_token.key
+                    }, status=status.HTTP_200_OK)
+                else: 
+                    return Response({"error": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
 
             return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -192,7 +167,7 @@ class ForgotPassword(APIView):
         try:
             user = User.objects.get(email=email)
             
-            otp = PasswordResetOTP.objects.create(user=user)
+            otp = OTP.objects.create(user=user)
             otp_code = otp.generate_otp()
             
             send_mail(
@@ -208,29 +183,35 @@ class ForgotPassword(APIView):
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
             
 class ResetPassword(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
-        email = request.data.get('email')
-        new_password = request.data.get('new_password')
-        
-        if not email or not new_password:
-            return Response({"error": "Email and new password are required."}, status=status.HTTP_400_BAD_REQUEST)
-        
+        email = request.data.get("email")
+        new_password = request.data.get("new_password")
+        reset_token = request.data.get("reset_token")
+
+        if not email or not new_password or not reset_token:
+            return Response({"error": "Email, new password, and reset token are required."}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             user = User.objects.get(email=email)
-            # Set the new password and save it
+            token = Token.objects.filter(user=user, key=reset_token).first()
+
+            if not token:
+                return Response({"error": "Invalid or expired reset token."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Update user password
             user.set_password(new_password)
             user.save()
-            return Response({"message": "Password reset successful!"}, status=status.HTTP_200_OK)
-        
+
+            # Delete reset token after successful password change
+            token.delete()
+
+            return Response({"message": "Password reset successful. You may now log in with your new password."}, status=status.HTTP_200_OK)
+
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-
-class UserList(APIView):
-    def get(self):
-        users = User.object.all() 
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
-    
+ 
 class LogoutUser(APIView):
     def get(self, request):
         logout(request)

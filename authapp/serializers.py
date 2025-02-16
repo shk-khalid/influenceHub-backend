@@ -6,7 +6,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'username', 'fullName', 'location', 'bio', 'socialLinks', 'profilePicture']
+        fields = ['id', 'email', 'userName', 'fullName', 'location', 'bio', 'socialLinks', 'profilePicture', 'niche', 'languages', 'collaborate']
 
         
 class RegistrationSerializer(serializers.ModelSerializer):
@@ -14,7 +14,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'password_confirmation']
+        fields = ['userName', 'email', 'password', 'password_confirmation']
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirmation']:
@@ -38,7 +38,7 @@ class LoginSerializer(serializers.Serializer):
         if '@' in username_or_email:
             user = User.objects.filter(email=username_or_email).first()
         else:
-            user = User.objects.filter(username=username_or_email).first()
+            user = User.objects.filter(userName=username_or_email).first()
             
         if not user:
             raise serializers.ValidationError('Invalid credentials')
@@ -54,7 +54,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 
     class Meta: 
         model = User 
-        fields = ['fullName', 'location', 'bio', 'socialLinks', 'profilePicture', 'niche', 'languages', 'collaborate', 'is_admin_verified']
+        fields = ['userName', 'fullName', 'location', 'bio', 'socialLinks', 'profilePicture', 'niche', 'languages', 'collaborate']
 
     def validate_languages(self, value):
         valid_languages = {'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
