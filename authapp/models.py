@@ -2,8 +2,9 @@ from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
 from django.utils import timezone
 from datetime import timedelta
-import random
-import string
+import random, string
+from campaignapp.models import Campaign
+from .storage_backends import FirebaseStorage
 
 class UserManager(BaseUserManager):
     def create_user(self, email, username=None, password=None, **extra_fields):
@@ -52,16 +53,20 @@ class User(AbstractBaseUser):
     ]
     
     email = models.EmailField(unique=True)
+    profilePicture = models.ImageField(
+        storage=FirebaseStorage(),
+        upload_to='profile_pics/',
+        null=True,
+        blank=True,
+    )
     userName = models.CharField(unique=True, max_length=255)
     password = models.CharField(max_length=255)
     fullName = models.CharField(max_length=255, null=True, blank=True)
     location = models.CharField(max_length=255, null=True, blank=True)
     bio = models.TextField(null=True, blank=True)
     socialLinks = models.JSONField(null=True, blank=True)
-    profilePicture = models.ImageField(upload_to='profile_pics/', null=True, blank=True)
     niche = models.CharField(max_length=50, choices=NICHE_CHOICES, null=True, blank=True)
     languages = models.JSONField(default=list, blank=True)
-    collaborate = models.BooleanField(default=False)
 
     # Status flags
     is_admin_verified = models.BooleanField(default=False)
@@ -101,3 +106,31 @@ class OTP(models.Model):
 
     def is_expired(self):
         return timezone.now() > (self.timestamp + timedelta(minutes=3))
+    
+
+class InstaStats(models.Model):
+    insta_id = models.CharField(max_length=100, unique=True)
+    userName = models.CharField(max_length=255)
+    bio = models.TextField(null=True, blank=True)
+    category = models.CharField(max_length=100, null=True, blank=True)
+    is_verified = models.BooleanField(default=False)
+    is_professional = models.BooleanField(default=False)
+    followers = models.PositiveIntegerField(default=0)
+    following = models.PositiveIntegerField(default=0)
+    posts_count = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return self.userName
+    
+class InstaPost(models.Model):
+    insta_stats = models.ForeignKey(InstaStats, on_delete=models.CASCADE, related_name="posts")
+    post_number = models.PositiveIntegerField() # value from 1 to 12
+    post_detail = models.JSONField()
+
+    def __str__(self):
+        return f"Post {self.post_number} of {self.insta_stats.userName}"
+    
+def create_insta_posts(insta_stats, posts_data):
+    for i in range(1, 13):
+        post_detail = posts_data[i-1] if i-1 < len(posts_data) else {}
+        InstaPost.objects.create(insta_stats=insta_stats, post_number=i, post_detail=post_detail) 

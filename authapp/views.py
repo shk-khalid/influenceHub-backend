@@ -7,9 +7,14 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from .serializers import RegistrationSerializer, LoginSerializer, ProfileUpdateSerializer
 from .models import OTP
+from .utils import extract_instagram_username, update_insta_stats_for_username
 from authapp.serializers import UserSerializer
 from django_ratelimit.decorators  import ratelimit
 from rest_framework.permissions import AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 User = get_user_model()
 
@@ -37,15 +42,33 @@ class RegisterUser(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
   
 class UpdateUserDetails(APIView):
+    permission_classes = [IsAuthenticated] 
+    parser_classes = (JSONParser, MultiPartParser, FormParser)
+    
     def patch(self, request):
-        serializer = ProfileUpdateSerializer(instance=request.user, data=request.data, partial=True, context={'request': request})
-        
+        serializer = ProfileUpdateSerializer(
+            instance=request.user, 
+            data=request.data, 
+            partial=True, 
+            context={'request': request}
+        )
         if serializer.is_valid():
             serializer.save()
-            return Response({"message": "User details updated successfully. ", "user": UserSerializer.data}, status=status.HTTP_200_OK)
+            # After saving, check if socialLinks contains an Instagram id.
+            # For example, if socialLinks is a JSON with key "insta_id":
+            social_links = serializer.data.get("socialLinks")
+            if social_links and isinstance(social_links, dict):
+                insta_url = social_links.get("instagram")
+                if insta_url:
+                    insta_username = extract_instagram_username(insta_url)
+                    if insta_username:
+                        # Trigger the Instagram stats update.
+                        update_insta_stats_for_username(insta_username)
+                    
+            return Response({"message": "User details updated successfully.", "user": serializer.data}, status=status.HTTP_200_OK)
         
-        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-       
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+     
 @method_decorator(ratelimit(key='ip', rate='5/h', block=True), name='dispatch')
 class LoginUser(APIView):
     permission_classes = [AllowAny]
@@ -104,7 +127,6 @@ class VerifyOTP(APIView):
 
                     return Response({
                         "message": "Login successful!",
-                        "redirect": "/dashboard",
                         "token": token.key,
                         "user": user_serializer.data
                     }, status=status.HTTP_200_OK)
@@ -213,6 +235,54 @@ class ResetPassword(APIView):
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
  
 class LogoutUser(APIView):
-    def get(self, request):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Delete the user's authentication token
+        Token.objects.filter(user=request.user).delete()
+
+        # Log the user out
         logout(request)
+
         return Response({"message": "Logged out successfully!"}, status=status.HTTP_200_OK)
+    
+class ManualStatsFetch(APIView):
+    
+    def post(self, request):
+        # Expecting socialLinks to be a JSON object in the request body containing "insta_id"
+        social_links = request.data.get("socialLinks")
+        if not social_links or not isinstance(social_links, dict):
+            return Response(
+                {"error": "socialLinks must be provided as a JSON object with an 'insta_id' key."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        insta_url = social_links.get("instagram")
+        if not insta_url:
+            return Response(
+                {"error": "Instagram URL is required in socialLinks under the key 'instagram'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        insta_username = extract_instagram_username(insta_url)
+        if not insta_username:
+            return Response(
+                {"error": "Instagram id ('insta_id') is required in socialLinks."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Call the helper function to fetch and update Instagram stats
+        update_result = update_insta_stats_for_username(insta_username)
+        
+        # Return a confirmation along with details from the update process
+        return Response(
+            {
+                "message": "Instagram stats updated successfully.",
+                "result": {
+                    "insta_id": str(update_result.get("insta_stats").insta_id) if update_result.get("insta_stats") else None,
+                    "media_count": update_result.get("media_count", 0)
+                }
+            },
+            status=status.HTTP_200_OK
+        )
