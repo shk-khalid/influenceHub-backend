@@ -1,15 +1,17 @@
 from rest_framework import serializers
+from campaignapp.serializers import CampaignSerializer
 from .models import User, InstaPost, InstaStats
 import json
 
 class UserSerializer(serializers.ModelSerializer):
     profilePicture = serializers.ImageField(use_url=True, required=False)
+    campaign =  CampaignSerializer(read_only=True)
 
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'userName', 'fullName', 'location', 
-            'bio', 'socialLinks', 'profilePicture', 'niche', 'languages'
+            'id', 'email', 'userName', 'fullName', 'location', 'bio', 
+            'socialLinks', 'profilePicture', 'niche', 'languages', 'campaign'
         ]
         
 class RegistrationSerializer(serializers.ModelSerializer):
