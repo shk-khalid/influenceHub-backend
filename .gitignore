@@ -23,6 +23,7 @@ media/
 # Django settings and secrets
 settings.py
 secret_key.txt
+/authapp/firebase_credentials.json
 .env
 
 # MySQL/PostgreSQL
@@ -59,4 +60,3 @@ instance/
 # .env files for environment variables
 .env
 
-/sultan_the_scraper.py
