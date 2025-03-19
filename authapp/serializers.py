@@ -10,7 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'userName', 'fullName', 'location', 'bio', 
+            'id', 'email', 'username', 'fullName', 'location', 'bio', 
             'socialLinks', 'profilePicture', 'niche', 'languages', 'campaign'
         ]
         
@@ -19,7 +19,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['userName', 'email', 'password', 'password_confirmation']
+        fields = ['username', 'email', 'password', 'password_confirmation']
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirmation']:
@@ -61,7 +61,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta: 
         model = User 
         fields = [
-            'userName', 'fullName', 'location', 'bio',
+            'username', 'fullName', 'location', 'bio',
             'socialLinks', 'profilePicture', 'niche', 'languages'
         ]
 
