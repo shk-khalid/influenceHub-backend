@@ -1,7 +1,7 @@
 import asyncpraw
 import os
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from textblob import TextBlob
 from dotenv import load_dotenv
 from asyncprawcore.exceptions import RequestException
@@ -45,9 +45,10 @@ async def fetch_subreddit_trend(reddit, category, subreddit_name):
         upvote_ratio = post.upvote_ratio
         growth = calculate_growth_from_upvote_ratio(upvote_ratio, benchmark_ratio=0.90)
         
-        created_at_dt = datetime.fromtimestamp(post.created_utc, tz=timezone.utc)
-        created_at_iso = created_at_dt.isoformat()
-        time_since_creation = (datetime.utcnow() - created_at_dt).total_seconds() / 60  # in minutes
+        # Create a timezone-aware datetime using Python's built-in timezone (UTC).
+        created_at_dt = datetime.fromtimestamp(post.created_utc, tz=dt_timezone.utc)
+        # Calculate time since creation in minutes using Django's timezone.now() for current time.
+        time_since_creation = (timezone.now() - created_at_dt).total_seconds() / 60
         
         title_sentiment = TextBlob(post.title).sentiment.polarity
         popularity = post.score / (time_since_creation + 1)
@@ -61,7 +62,7 @@ async def fetch_subreddit_trend(reddit, category, subreddit_name):
             'volume': post.score,
             'region': 'Global',
             'growth': growth,
-            'created_at': created_at_iso,
+            'created_at': created_at_dt,
             'sentiment': title_sentiment,
             'num_comments': post.num_comments,
             'popularity': popularity,

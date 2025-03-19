@@ -68,8 +68,6 @@ class User(AbstractBaseUser):
     niche = models.CharField(max_length=50, choices=NICHE_CHOICES, null=True, blank=True)
     languages = models.JSONField(default=list, blank=True)
 
-    campaign = models.ForeignKey(Campaign, on_delete=models.SET_NULL, null=True, blank=True)
-
     # Status flags
     is_admin_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
