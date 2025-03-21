@@ -3,8 +3,10 @@ from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
 from django.utils import timezone
 from datetime import timedelta
 import random, string
-from campaignapp.models import Campaign
 from .storage_backends import FirebaseStorage
+from django.conf import settings
+from brands_insightapp.models import Brand
+
 
 class UserManager(BaseUserManager):
     def create_user(self, email, username=None, password=None, **extra_fields):
@@ -78,10 +80,10 @@ class User(AbstractBaseUser):
     objects = UserManager()
 
     USERNAME_FIELD = 'email'  # Changed to 'email' for better authentication handling
-    REQUIRED_FIELDS = ['userName']
+    REQUIRED_FIELDS = ['username']
 
     def __str__(self):
-        return self.userName
+        return self.username
 
     def has_perm(self, perm, obj=None):
         return self.is_superuser
@@ -134,3 +136,17 @@ def create_insta_posts(insta_stats, posts_data):
     for i in range(1, 13):
         post_detail = posts_data[i-1] if i-1 < len(posts_data) else {}
         InstaPost.objects.create(insta_stats=insta_stats, post_number=i, post_detail=post_detail) 
+
+class BrandSuggestion(models.Model):
+    DECISION_CHOICES = [
+        ("accepted", "Accepted"),
+        ("declined", 'Declined'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="brand_suggestions")
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
+    decision = models.CharField(max_length=15, choices=DECISION_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.brand.name} ({self.decision})"

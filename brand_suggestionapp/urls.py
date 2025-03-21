@@ -1,7 +1,7 @@
 from django.urls import path
-from .views import train_and_evaluate, suggest_brands
+from .views import TrainAndEvaluateView, SuggestBrandsView
 
 urlpatterns = [
-    path('train/', train_and_evaluate, name='train_and_evaluate'),
-    path('suggest_brands/', suggest_brands, name='suggest_brands'),
+    path('train/', TrainAndEvaluateView.as_view(), name='Train and Evaluate'),
+    path('suggest/', SuggestBrandsView.as_view(), name='Suggest Brands'),
 ]
