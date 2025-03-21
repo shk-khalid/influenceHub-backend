@@ -7,5 +7,6 @@ urlpatterns = [
     path('campaign/', include('campaignapp.urls')),
     path('trend/', include('trend_analysisapp.urls')),
     path('insight/', include('brands_insightapp.urls')),
+    path('api/', include('brand_suggestionapp.urls')),
     path('chat/', include('chatapp.urls')),
 ]
