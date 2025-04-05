@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import traceback
 import numpy as np
@@ -21,8 +22,10 @@ from .algorithm import (
     train_dec_model,
     evaluate_dec
 )
-from brands_insightapp.models import BrandsSocialStats
+from brands_insightapp.models import BrandsSocialStats, Brand
 from authapp.models import InstaStats, BrandSuggestion
+from brands_insightapp.serializers import BrandDetailSerializer
+from .serializers import SuggestionHistorySerializer
 
 
 def convert_numpy_types(obj):
@@ -138,18 +141,31 @@ class SuggestBrandsView(APIView):
     GET endpoint that fetches influencer metrics from the authenticated user's InstaStats record,
     computes additional metrics (if needed), and suggests brands based on cosine similarity (>= 0.95).
     Brands that the user has already accepted or declined are filtered out.
+    Returns a detailed brand serializer.
     """
     def get(self, request, format=None):
         if not request.user.is_authenticated:
             return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
         try:
-            # Fetch the user's Instagram statistics
+            # Extract the Instagram handle from socialLinks
+            social_links = request.user.socialLinks
+            if isinstance(social_links, str):
+                social_links = json.loads(social_links)
+            insta_url = social_links.get("instagram", "")
+            # Extract the handle from a URL like "https://www.instagram.com/filmthusiast/"
+            match = re.search(r'instagram\.com/([^/]+)/?', insta_url)
+            if match:
+                insta_handle = match.group(1)
+            else:
+                insta_handle = request.user.username
+
+            # Lookup InstaStats using the extracted handle (case-insensitive)
             try:
-                insta_stats = InstaStats.objects.get(userName=request.user.username)
+                insta_stats = InstaStats.objects.get(userName__iexact=insta_handle)
             except InstaStats.DoesNotExist:
                 return Response({"error": "User InstaStats not found."}, status=status.HTTP_404_NOT_FOUND)
-            
-            # Compute average likes and comments from the user's posts
+
+            # Compute influencer metrics from posts
             posts = insta_stats.posts.all()  # Assumes related_name="posts" in InstaPost model
             total_likes, total_comments, count = 0, 0, 0
             for post in posts:
@@ -162,7 +178,7 @@ class SuggestBrandsView(APIView):
                         count += 1
             avg_likes_computed = total_likes / count if count > 0 else 0
             avg_comments_computed = total_comments / count if count > 0 else 0
-            
+
             followers = insta_stats.followers
             verified_multiplier = 1.2 if insta_stats.is_verified else 1.0
             professional_multiplier = 1.1 if getattr(insta_stats, "is_professional", False) else 1.0
@@ -187,32 +203,36 @@ class SuggestBrandsView(APIView):
             }
             
             influencer_df = pd.DataFrame([influencer_data])
+            # Only these features were used during training
             required_fields = [
                 "followers", "engagement_score", "engagement_per_follower",
                 "estimated_reach", "estimated_impression", "reach_ratio"
             ]
             
-            # Retrieve brand social stats used during training
+            # Retrieve brand social stats used during training, including brand id and name
             qs = BrandsSocialStats.objects.all().values(*required_fields, "brand__name", "brand__id")
             df_brands = pd.DataFrame(list(qs))
             if df_brands.empty:
                 return Response({"error": "No brand data available."}, status=status.HTTP_404_NOT_FOUND)
             
-            # Filter out brands that have been already suggested to the user
+            # Exclude brands that have already been suggested
             existing_suggestions = BrandSuggestion.objects.filter(user=request.user).values_list("brand__id", flat=True)
             df_brands = df_brands[~df_brands["brand__id"].isin(existing_suggestions)]
             
-            # Fit a scaler on brand data for normalization
+            # Fit a scaler on brand data for normalization using only the required fields
             scaler = StandardScaler()
             scaler.fit(df_brands[required_fields])
             
-            influencer_scaled = scaler.transform(influencer_df)
+            # Transform influencer data using only the required fields
+            influencer_scaled = scaler.transform(influencer_df[required_fields])
             encoder = load_encoder_model()
             influencer_latent = encoder.predict(influencer_scaled)
             
+            # Transform brand data
             brands_array = scaler.transform(df_brands[required_fields].values)
             brands_latent = encoder.predict(brands_array)
             
+            # Compute cosine similarities for each brand
             similarities = [
                 cosine_similarity(influencer_latent.flatten(), brands_latent[i].flatten())
                 for i in range(brands_latent.shape[0])
@@ -221,14 +241,65 @@ class SuggestBrandsView(APIView):
             
             # Filter and sort brands with similarity >= 0.95
             df_filtered_sorted = df_brands[df_brands["similarity"] >= 0.95].sort_values(by="similarity", ascending=False)
-            suggested_brands = df_filtered_sorted.to_dict(orient="records")
-            suggested_count = len(suggested_brands)
+            
+            # Extract ordered list of brand IDs from the filtered dataframe
+            suggested_ids = list(df_filtered_sorted["brand__id"])
+            suggested_count = len(suggested_ids)
+            
+            # Query the Brand model to get the full details
+            # To preserve order, we fetch each brand by ID in the suggested order.
+            brands = [Brand.objects.get(id=bid) for bid in suggested_ids]
+            serializer = BrandDetailSerializer(brands, many=True)
             
             response_data = {
                 "user_profile_metrics": influencer_data,
                 "suggested_count": suggested_count,
-                "suggested_brands": suggested_brands
+                "suggested_brands": serializer.data
             }
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class RespondBrandSuggestionView(APIView):
+    
+    def post(self, request, brand_id, format=None):
+        if not request.user.is_authenticated:
+            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        action = request.data.get('action')
+        if action not in ('accept', 'decline'):
+            return Response({"error": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            brand = Brand.objects.get(id=brand_id)
+        except Brand.DoesNotExist:
+            return Response({"error": "Brand not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Create or update the suggestion record
+        BrandSuggestion.objects.update_or_create(
+            user=request.user,
+            brand=brand,
+            defaults={'status': action}
+        )
+
+        return Response(
+            {"message": f"Brand {action}ed successfully."},
+            status=status.HTTP_200_OK
+        )
+    
+class SuggestionHistoryView(APIView):
+    """
+    GET /api/suggestions/history/
+    Returns the list of brands this user has accepted or declined, with details.
+    """
+    def get(self, request, format=None):
+        if not request.user.is_authenticated:
+            return Response(
+                {"error": "Authentication required."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        qs = BrandSuggestion.objects.filter(user=request.user).order_by('-suggested_at')
+        serializer = SuggestionHistorySerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

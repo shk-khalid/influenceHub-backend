@@ -247,8 +247,7 @@ class LogoutUser(APIView):
 
         return Response({"message": "Logged out successfully!"}, status=status.HTTP_200_OK)
     
-class ManualStatsFetch(APIView):
-    
+class ManualFetch(APIView):    
     def post(self, request):
         # Expecting socialLinks to be a JSON object in the request body containing "insta_id"
         social_links = request.data.get("socialLinks")
