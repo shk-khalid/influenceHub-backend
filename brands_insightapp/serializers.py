@@ -3,11 +3,12 @@ from .models import Brand, PerformanceMetric, Competitor, GenderDemographic, Val
 
 
 class CompetitorSerializer(serializers.ModelSerializer):
+    competitor_id = serializers.UUIDField(source="competitor.id", read_only=True)
     competitor_name = serializers.CharField(source="competitor.name", read_only=True)
 
     class Meta:
         model = Competitor
-        fields = ['competitor_name']
+        fields = ['competitor_id', 'competitor_name']
 
 
 class ValuationHistorySerializer(serializers.ModelSerializer):

@@ -81,13 +81,7 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CSRF Settings
-CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:8000",
-]
 
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
 
 # WSGI application
 WSGI_APPLICATION = 'backend.wsgi.application'
@@ -122,7 +116,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'authapp.User'
 
 # Email backend settings
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')         # SMTP server (example: Gmail's SMTP)
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))                   # SMTP port (example: 587 for TLS)
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'       # Enable TLS
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')                   # Your email address or username
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')           # Your email password or app-specific password
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 FRONTEND_URL = os.getenv('FRONTEND_URL')
 
 # Session settings

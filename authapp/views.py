@@ -1,3 +1,4 @@
+import numpy as np
 from django.contrib.auth import get_user_model, login, logout
 from django.utils.decorators import method_decorator
 from django.core.mail import send_mail
@@ -6,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from .serializers import RegistrationSerializer, LoginSerializer, ProfileUpdateSerializer
-from .models import OTP
+from .models import OTP, InstaStats, InstaPost
 from .utils import extract_instagram_username, update_insta_stats_for_username
 from authapp.serializers import UserSerializer
 from django_ratelimit.decorators  import ratelimit
@@ -285,3 +286,92 @@ class ManualFetch(APIView):
             },
             status=status.HTTP_200_OK
         )
+        
+class UserOverview(APIView):
+    """
+    Return an overview of the user's Instagram engagement metrics using
+    the stored data in InstaStats and InstaPost. The lookup for the Instagram
+    record is performed by extracting the username from the user's socialLinks
+    field which is expected to follow the format: "www.instagram.com/username".
+
+    Metrics include:
+      - engagement_score: Total likes and comments across all posts.
+      - engagement_per_follower: Engagement score divided by the followers count.
+      - estimated_reach: Estimated using a heuristic multiplier.
+      - estimated_impressions: Estimated using a heuristic multiplier.
+      - reach_ratio: Estimated reach normalized by the followers count.
+
+    The API also returns a list containing details of each post.
+    """
+    
+    def get(self, request):
+        social_links = request.user.socialLinks
+        instagram_url = social_links.get("instagram")
+        
+        if not instagram_url:
+            return Response(
+                {"error": "Instagram URL not found in your social links."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        instagram_username = extract_instagram_username(instagram_url)
+        if not instagram_username:
+            return Response(
+                {"error": "Unable to extract Instagram username from the provided URL."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        insta_stats = InstaStats.objects.filter(userName=instagram_username).first()
+        if not insta_stats:
+            return Response(
+                {"error": "Instagram statistics not found for the provided username."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+        posts = insta_stats.posts.all()
+        
+        total_likes, total_comments, count = 0, 0, 0
+        posts_data = []
+        for post in posts:
+            if post.post_detail:
+                # Fetch "likeCount" and "commentCount" from post_detail JSON.
+                like_count = post.post_detail.get("likeCount")
+                comment_count = post.post_detail.get("commentCount")
+                if like_count is not None and comment_count is not None:
+                    total_likes += float(like_count)
+                    total_comments += float(comment_count)
+                    count += 1
+                    posts_data.append({
+                        "post_number": post.post_number,
+                        "like_count": float(like_count),
+                        "comment_count": float(comment_count),
+                    })
+                    
+        avg_likes_computed = total_likes / count if count > 0 else 0
+        avg_comments_computed = total_comments / count if count > 0 else 0
+        
+        followers = insta_stats.followers
+        verified_multiplier = 1.2 if insta_stats.is_verified else 1.0
+        professional_multiplier = 1.1 if getattr(insta_stats, "is_professional", False) else 1.0
+
+        # Calculate metrics using the provided formula.
+        estimated_reach = ((followers ** 0.6) *
+                           ((avg_likes_computed + avg_comments_computed) ** 0.4) *
+                           verified_multiplier * professional_multiplier * 100)
+        estimated_impression = estimated_reach * 1.5
+        reach_ratio = estimated_reach / followers if followers > 0 else 0
+        engagement_score = (avg_likes_computed * 0.7) + (avg_comments_computed * 0.3)
+        engagement_per_follower = ((avg_likes_computed + avg_comments_computed) / followers) if followers > 0 else np.nan
+        
+        overview = {
+            "estimated_reach": estimated_reach,
+            "estimated_impression": estimated_impression,
+            "reach_ratio": reach_ratio,
+            "engagement_score": engagement_score,
+        }
+        
+        return Response({
+            "overview": overview,
+            "posts": posts_data
+        }, status=status.HTTP_200_OK)
+        

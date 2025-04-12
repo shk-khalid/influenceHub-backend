@@ -252,7 +252,6 @@ class SuggestBrandsView(APIView):
             serializer = BrandDetailSerializer(brands, many=True)
             
             response_data = {
-                "user_profile_metrics": influencer_data,
                 "suggested_count": suggested_count,
                 "suggested_brands": serializer.data
             }
@@ -277,10 +276,10 @@ class RespondBrandSuggestionView(APIView):
             return Response({"error": "Brand not found."}, status=status.HTTP_404_NOT_FOUND)
 
         # Create or update the suggestion record
-        BrandSuggestion.objects.update_or_create(
+        suggestion, created = BrandSuggestion.objects.update_or_create(
             user=request.user,
             brand=brand,
-            defaults={'status': action}
+            defaults={'decision': action}
         )
 
         return Response(
@@ -300,6 +299,6 @@ class SuggestionHistoryView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        qs = BrandSuggestion.objects.filter(user=request.user).order_by('-suggested_at')
+        qs = BrandSuggestion.objects.filter(user=request.user).order_by('-created_at')
         serializer = SuggestionHistorySerializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)

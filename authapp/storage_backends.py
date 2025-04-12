@@ -1,14 +1,25 @@
-from django.core.files.storage import Storage
+import os
+import json
 from datetime import timedelta
+from django.core.files.storage import Storage
 import firebase_admin
 from firebase_admin import credentials, storage
 
-# Initialize Firebase Admin SDK (this runs once)
-if not firebase_admin._apps:
+# Attempt to load Firebase credentials from an environment variable.
+firebase_creds = os.environ.get('FIREBASE_CREDENTIALS')
+if firebase_creds:
+    # Parse the JSON string from the environment variable.
+    cred_dict = json.loads(firebase_creds)
+    cred = credentials.Certificate(cred_dict)
+else:
+    # Fallback: use the local credentials file (for local development).
     cred = credentials.Certificate(r"authapp\firebase_credentials.json")
+
+# Initialize Firebase Admin SDK if it hasn't been initialized yet.
+if not firebase_admin._apps:
     firebase_admin.initialize_app(cred, {
         'storageBucket': "influencehub-9955b.firebasestorage.app"
-    })    
+    })
 
 class FirebaseStorage(Storage):
     def _open(self, name, mode='rb'):
@@ -18,6 +29,7 @@ class FirebaseStorage(Storage):
     def _save(self, name, content):
         bucket = storage.bucket()
         blob = bucket.blob(name)
+        # Upload the file from the in-memory file object.
         blob.upload_from_file(content.file, content_type=content.content_type)
         return name
 
@@ -38,4 +50,4 @@ class FirebaseStorage(Storage):
         Since no additional parameters are used, we simply return the full
         python path of the class with empty args and kwargs.
         """
-        return ("authapp.storage_backends.FirebaseStorage", [], {})   
+        return ("authapp.storage_backends.FirebaseStorage", [], {})

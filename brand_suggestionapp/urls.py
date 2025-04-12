@@ -3,6 +3,6 @@ from .views import SuggestBrandsView, RespondBrandSuggestionView, SuggestionHist
 
 urlpatterns = [
     path('', SuggestBrandsView.as_view(), name='Suggest Brands'),
-    path('<int:brand_id>/respond/', RespondBrandSuggestionView.as_view(), name='Record Decision'),
+    path('<uuid:brand_id>/respond/', RespondBrandSuggestionView.as_view(), name='Record Decision'),
     path('history/', SuggestionHistoryView.as_view(), name="Suggestion History"),
 ]
